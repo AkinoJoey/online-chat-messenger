@@ -1,0 +1,79 @@
+@startuml all
+class Server{
+    sock: socket
+    address: String
+    port: int
+    chatrooms: HashMap<String address+port, Chatroom chatroom>
+    constructor()
+    accept(): void
+    makeChatClient(name, address, port): ChatClient
+    makeChatRoom(roomName, maxMember, client): ChatRoom   
+}
+
+class ChatRoom{
+    sock: socket
+    address: String
+    port: int
+    roomName: String
+    maxMember: int
+    participants: ArrayList<ChatClient>
+    hostMap: HashMap<String name, ChatClient client>
+    constructor(roomName, maxMember, client)
+    startChat():
+}
+
+class ChatClient{
+    username: String
+    address: String
+    port: int
+    status: String 
+    chatRoomJoining: String
+    constructor(username, adress, port,status)
+}
+
+
+
+@enduml
+
+
+サービスの流れ
+・ユーザー名を入力
+・「新しいチャットルームを作成しますか？」「既存のチャットルームに参加しますか？」
+
+【チャットルームを作成する場合】
+・「チャットルームの名前、最大参加者数を入力してください」
+・作成したクライアントがホストとして指定されたチャットルームが作成される
+・「このチャットルームを終了しますか？」
+
+【既存のチャットルームに参加する場合】
+・「参加したいチャットルームのアドレスとポートを入力してくだい」
+・「○○がホストの、｛チャットルーム名｝に参加しますか？」
+・チャットルームに参加
+・「このチャットルームから退出しますか？」
+
+システムの流れ
+【サーバー側】
+・Python3 server.pyを実行
+・ユーザーに名前を促す
+・サービス内容を促す
+・チャットルームを作成する場合は、TCP接続をして、チャットルームの名前と最大参加者数を促す
+・チャットルームを作成して、チャットルーム側でホストに対してUDP接続をする
+
+・既存のチャットルームに参加する場合は、HashMapでチャットルームを検索
+・チャットルームにクライアントを追加して、UDP接続
+
+【クライアント側】
+・Python3 client.pyを実行
+・名前を入力
+・サービス内容を選択
+・新しいチャットルームを作成する場合は、TCP接続を開始、名前と最大参加者数を入力する
+・チャットルームに参加して、チャットを開始する
+
+・既存のチャットルームに参加する場合は、参加したいチャットルームの名前を入力する
+・チャットルームに参加して、チャットを開始する
+
+
+
+memo
+・TCP接続の場合は、サーバー側のアドレス（ポート）が必要。クライアントはそこにソケットを接続するから、クライアント側のアドレス（ポート）は不要。
+・UDP接続の場合は、サーバー側とクライアント側両方ともアドレス（ポート）が必要。クライアントはデータを受信する際は、自分のアドレス（ポート）に紐づける。送信する際はサーバー側のアドレス（ポート）に対して送信する。

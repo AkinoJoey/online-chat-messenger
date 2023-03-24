@@ -1,4 +1,6 @@
 @startuml all
+
+' サーバー側のコード。クライアントのリクエストを受けて、チャットルームを作成したり、チャットルームにジョインさせたりする
 class Server{
     sock: socket
     address: String
@@ -16,10 +18,14 @@ class ChatRoom{
     port: int
     roomName: String
     maxMember: int
-    participants: ArrayList<ChatClient>
+    participants: ArrayList<HashMap<String address + port, ChatClient client>>
     hostMap: HashMap<String name, ChatClient client>
     constructor(roomName, maxMember, client)
-    startChat():
+    startChat():void
+    checkClientJoiningChatRoom(): boolean
+    checkNumberOfMember(): void
+    checkClientWhetherChatMember():
+
 }
 
 class ChatClient{
@@ -31,6 +37,18 @@ class ChatClient{
     constructor(username, adress, port,status)
 }
 
+class Client{
+    sock: Socket
+    server_address: String
+    servver_port: int
+    address: String
+    port: int
+    constructor()
+    protocol_header(username_length, service_type_length, chatroom_name_length, maxMember_length): bytes
+    startChat(chatRoom_name): void
+    connecServer():void
+    joinChat():void
+}
 
 
 @enduml

@@ -5,17 +5,17 @@ class Client:
     
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_address = '0.0.0.0'
-        self.server_port = 9001
-        self.address = '0.0.0.0'
-        self.port = 9005
+        self.server_address = '127.0.0.1'
+        self.server_port = 9005
+        self.address = '127.0.0.1'
+        self.port = 9998
         
     def protocol_header(username_length, service_type_length, chatroom_name_length, maxMember_length):
         return username_length.to_bytes(2, "big") + service_type_length.to_bytes(2, "big") + chatroom_name_length.to_bytes(2, "big") + maxMember_length.to_bytes(2, "big")
     
     def startChat(self,chatRoom_name):
         sockForChat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        chatroom_address = '0.0.0.0'
+        chatroom_address = '127.0.0.1'
         chatroom_port = 9002
         
         sockForChat.bind((self.address, self.port))

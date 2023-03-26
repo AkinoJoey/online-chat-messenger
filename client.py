@@ -3,14 +3,14 @@ import sys
 
 class Client:
     
-    def __init__(self):
+    def __init__(self,port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = '127.0.0.1'
         self.server_port = 9005
         self.address = '127.0.0.1'
-        self.port = 9998
+        self.port = int(port)
         
-    def protocol_header(username_length, service_type_length, chatroom_name_length, maxMember_length):
+    def protocol_header(self, username_length, service_type_length, chatroom_name_length, maxMember_length):
         return username_length.to_bytes(2, "big") + service_type_length.to_bytes(2, "big") + chatroom_name_length.to_bytes(2, "big") + maxMember_length.to_bytes(2, "big")
     
     def startChat(self,chatRoom_name):
@@ -26,7 +26,7 @@ class Client:
                 message = input("You: ").encode("utf-8")
                 sockForChat.sendto(message, (chatroom_address, chatroom_port))
                 
-                sockForChat.settimeout(2)
+                # sockForChat.settimeout(2)
                 data, address = sockForChat.recvfrom(4096)
                 print("{}: {}".format(address, data.decode()))
             
@@ -61,10 +61,10 @@ class Client:
             chatRoom_name_bytes = chatRoom_name.encode("utf-8")
             
             # ユーザーが参加者のときは0に設定しておく
-            promptMaxMember = "0" if service_type == "2" else input("--> Type in  the maximum number of participants for your chat room: ")
+            promptMaxMember = "0" if service_type == "2" else input("--> Type in the maximum number of participants for your chat room: ")
             promptMaxMember_bytes = promptMaxMember.encode("utf-8")
             
-            header = Client.protocol_header(len(user_name_bytes), len(service_type_bytes),len(chatRoom_name_bytes),len(promptMaxMember_bytes))
+            header = self.protocol_header(len(user_name_bytes), len(service_type_bytes),len(chatRoom_name_bytes),len(promptMaxMember_bytes))
             
             self.sock.send(header)
             self.sock.send(user_name_bytes)
@@ -72,7 +72,7 @@ class Client:
             self.sock.send(chatRoom_name_bytes)
             self.sock.send(promptMaxMember_bytes)
             
-            Client.startChat(self,chatRoom_name)
+            self.startChat(chatRoom_name)
             
         except(TimeoutError):
             print("Socket timeout.")
@@ -87,11 +87,11 @@ class Client:
     
             
 class Main:
-    client = Client()
+    port = input("--> Type in a port number to use: ")
+    client = Client(port)
     client.connectServer()
     
     
 if __name__ == '__main__':
     Main()
 
-    

@@ -6,7 +6,7 @@ class ChatClient:
         self.address = address
         self.port = port
         self.status = status
-        self.chatRoomJoining = None
+        self.chatRoomJoining = True
         
 class ChatRoom:
     def __init__(self,roomName, maxMember, client):
@@ -15,10 +15,10 @@ class ChatRoom:
         self.port = 9002
         self.roomName = roomName
         self.maxMember = maxMember
-        self.participants = 1
-        self.hostMap = {"hostName": client.username, "host": client}
+        self.participants = []
+        self.hostMap = {(client.username) + str(client.port): client}
         
-    def startChat(self,client):
+    def startChat(self):
         print('\nStart the new chat room "{}"'.format(self.roomName))
         
         self.sock.bind((self.address, self.port))
@@ -26,13 +26,22 @@ class ChatRoom:
         while True:
             data, address = self.sock.recvfrom(4096)
             
+            # if self.participants[address[0] + str(address[1])] == None:
+            #     break
             
             print("{}: {}".format(address, data.decode("utf-8")))
-
-
-            message = "bot: i am a bot machine.".encode("utf-8")
-            self.sock.sendto(message, (address[0],address[1]))
+            print(self.participants)
             
+            for member in self.participants:
+                print(repr(member))
+                print(repr(member.address))
+                print(int(member.port))
+                # self.sock.sendto(data,(repr(member.address),int(member.port)))
+                self.sock.sendto(data,('127.0.0.1',9006))
+
+
+            # message = "bot: i am a bot machine.".encode("utf-8")
+            # self.sock.sendto(message, (address[0],address[1]))
         
 class Server:
     def __init__(self):
@@ -79,26 +88,48 @@ class Server:
                 print("User adress: {}".format(client_address))
                 
                 
-                chatClient = Server.makeChatClient(username, client_address[0],client_address[1],service_type)
+                chatClient = self.makeChatClient(username, client_address[0],client_address[1],service_type)
 
                 # service_tyepが1の場合は新しいチャットルームを作成して、開始。2の場合は既存のチャットルームに参加。
                 if service_type == "1":
-                    newChatroom = Server.makeChatroom(chat_roomName, maxMember, chatClient)
-                    self.chatRooms[chatClient.address + str(chatClient.port)] = newChatroom
-                    newChatroom.startChat(chatClient)
+                    newChatroom = self.makeChatroom(chat_roomName, maxMember, chatClient)
+                    self.chatRooms[newChatroom.roomName] = newChatroom
+                    self.addClientToChatRoom(chatClient, chat_roomName)
+                    newChatroom.startChat()
                 else:
+                    # service_typeが2の場合は既存のチャットルームがあるかどうか、人数が上限に達していないかどうか確認して、問題なかったら参加。
+                    if self.findChatRoom(chat_roomName) is False:
+                        message = "{} is does not exist".format(chat_roomName)
+                        self.sock.send(message)
+                    elif self.checkChatRoomCapacity(chat_roomName) is False:
+                        message = "{} is full".format(chat_roomName)
+                    else:
+                        self.addClientToChatRoom(chatClient, chat_roomName)
+                        
+                    
                     print("join chat room")
             
             except Exception as e:
                 print('Error: ' + str(e))
                 
         
-    def makeChatClient(username, address, port, service_type):
+    def makeChatClient(self ,username, address, port, service_type):
         status = "host" if service_type == "1" else "participant"
         return ChatClient(username, address, port, status)
     
-    def makeChatroom(roomName, maxMember, client):
+    def makeChatroom(self, roomName, maxMember, client):
         return ChatRoom(roomName, maxMember, client)
+    
+    def findChatRoom(self,roomName):
+        return self.chatRooms[roomName] != None
+    
+    def checkChatRoomCapacity(self,roomName):
+        chatRoom = self.chatRooms[roomName]
+        return len(chatRoom.participants) < chatRoom.maxMember
+    
+    def addClientToChatRoom(self, client, roomName):
+        chatRoom = self.chatRooms[roomName]
+        chatRoom.participants.append(client)
     
 class Main:
     server = Server()

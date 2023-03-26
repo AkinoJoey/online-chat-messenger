@@ -5,11 +5,14 @@ class Server{
     sock: socket
     address: String
     port: int
-    chatrooms: HashMap<String address+port, Chatroom chatroom>
+    chatrooms: HashMap<String chatroomName, Chatroom chatroom>
     constructor()
     accept(): void
     makeChatClient(name, address, port): ChatClient
     makeChatRoom(roomName, maxMember, client): ChatRoom   
+    findChatRoom(): boolean
+    checkChatRoomCapacity(): boolean
+    addClientToChatRoom(): void
 }
 
 class ChatRoom{
@@ -18,14 +21,11 @@ class ChatRoom{
     port: int
     roomName: String
     maxMember: int
-    participants: ArrayList<HashMap<String address + port, ChatClient client>>
-    hostMap: HashMap<String name, ChatClient client>
+    participants: ArrayList<ChatClient client>
+    hostMap: HashMap<String address + port, ChatClient client>
     constructor(roomName, maxMember, client)
     startChat():void
-    checkClientJoiningChatRoom(): boolean
-    checkNumberOfMember(): void
-    checkClientWhetherChatMember():
-
+    
 }
 
 class ChatClient{
@@ -40,7 +40,7 @@ class ChatClient{
 class Client{
     sock: Socket
     server_address: String
-    servver_port: int
+    server_port: int
     address: String
     port: int
     constructor()

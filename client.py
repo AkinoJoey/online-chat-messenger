@@ -1,38 +1,55 @@
 import socket
 import sys
+import asyncio
 
 class Client:
     
-    def __init__(self,port):
+    def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sockForChat = None
+        self.chatRoom_address = None
+        self.chatRoom_port = None
         self.server_address = '127.0.0.1'
         self.server_port = 9005
         self.address = '127.0.0.1'
-        self.port = int(port)
+        self.port = None
         
     def protocol_header(self, username_length, service_type_length, chatroom_name_length, maxMember_length):
         return username_length.to_bytes(2, "big") + service_type_length.to_bytes(2, "big") + chatroom_name_length.to_bytes(2, "big") + maxMember_length.to_bytes(2, "big")
     
+    def setPortNumber(self):
+        while self.port == None:
+                self.port = int.from_bytes(self.sock.recv(2), "big")
+
+    async def sendMessage(self):
+        message = input("You: ").encode("utf-8")
+        self.sockForChat.sendto(message, (self.chatroom_address, self.chatroom_port))
+
+    async def receveMessage(self):
+        data, address = self.sockForChat.recvfrom(4096)
+        print(data.decode())
+
+    async def main(self):
+        async with asyncio.TaskGroup() as tg:
+            sendFunction = tg.create_task(self.sendMessage())
+            receveFunction = tg.create_task(self.receveMessage())
+
     def startChat(self,chatRoom_name):
-        sockForChat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        chatroom_address = '127.0.0.1'
-        chatroom_port = 9002
+        self.sockForChat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.chatroom_address = '127.0.0.1'
+        self.chatroom_port = 9002
         
-        sockForChat.bind((self.address, self.port))
+        self.sockForChat.bind((self.address, self.port))
         print('\nStart the new chat room "{}"'.format(chatRoom_name))
         
         while True:
             try:
-                message = input("You: ").encode("utf-8")
-                sockForChat.sendto(message, (chatroom_address, chatroom_port))
-                
-                # sockForChat.settimeout(2)
-                data, address = sockForChat.recvfrom(4096)
-                print("{}: {}".format(address, data.decode()))
+                asyncio.run(self.main())
+                # self.sockForChat.settimeout(2)
             
             except TimeoutError as e:
                 print(e)
-                sockForChat.close()
+                self.sockForChat.close()
             
                 
     def connectServer(self):
@@ -72,6 +89,8 @@ class Client:
             self.sock.send(chatRoom_name_bytes)
             self.sock.send(promptMaxMember_bytes)
             
+            self.setPortNumber()
+
             self.startChat(chatRoom_name)
             
         except(TimeoutError):
@@ -87,8 +106,7 @@ class Client:
     
             
 class Main:
-    port = input("--> Type in a port number to use: ")
-    client = Client(port)
+    client = Client()
     client.connectServer()
     
     

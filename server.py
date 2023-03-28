@@ -15,8 +15,8 @@ class ChatRoom:
         self.port = 9002
         self.roomName = roomName
         self.maxMember = maxMember
-        self.participants = []
-        self.hostMap = {(client.username) + str(client.port): client}
+        self.participants = {(client.address) + str(client.port): client}
+        self.hostMap = {(client.address) + str(client.port): client}
         
     def startChat(self):
         print('\nStart the new chat room "{}"'.format(self.roomName))
@@ -25,24 +25,18 @@ class ChatRoom:
         
         while True:
             data, address = self.sock.recvfrom(4096)
-            
-            # if self.participants[address[0] + str(address[1])] == None:
-            #     break
-            
-            print("{}: {}".format(address, data.decode("utf-8")))
-            print(self.participants)
-            
-            for member in self.participants:
-                print(repr(member))
-                print(repr(member.address))
-                print(int(member.port))
-                # self.sock.sendto(data,(repr(member.address),int(member.port)))
-                self.sock.sendto(data,('127.0.0.1',9006))
+            userNameOfData = self.participants[address[0] + str(address[1])].username
 
+            print("{}: {}".format(userNameOfData, data.decode("utf-8")))
+            message = "{}: {}".format(userNameOfData, data.decode("utf-8"))
 
-            # message = "bot: i am a bot machine.".encode("utf-8")
-            # self.sock.sendto(message, (address[0],address[1]))
-        
+            for member in self.participants.values():
+                if member == self.participants[address[0] + str(address[1])]:
+                    continue
+                self.sock.sendto(message.encode(),(member.address, member.port))
+            
+            self.sock.sendto("test,".encode(),(address[0],address[1]))
+
 class Server:
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -86,15 +80,14 @@ class Server:
                 print("Username: {}".format(username))
                 print("Service Type: {}".format(stringOfService))
                 print("User adress: {}".format(client_address))
-                
-                
-                chatClient = self.makeChatClient(username, client_address[0],client_address[1],service_type)
+
+                connection.sendall(user_port.to_bytes(2, "big"))
+                chatClient = self.makeChatClient(username, user_address,user_port,service_type)
 
                 # service_tyepが1の場合は新しいチャットルームを作成して、開始。2の場合は既存のチャットルームに参加。
                 if service_type == "1":
                     newChatroom = self.makeChatroom(chat_roomName, maxMember, chatClient)
                     self.chatRooms[newChatroom.roomName] = newChatroom
-                    self.addClientToChatRoom(chatClient, chat_roomName)
                     newChatroom.startChat()
                 else:
                     # service_typeが2の場合は既存のチャットルームがあるかどうか、人数が上限に達していないかどうか確認して、問題なかったら参加。
@@ -107,8 +100,6 @@ class Server:
                         self.addClientToChatRoom(chatClient, chat_roomName)
                         
                     
-                    print("join chat room")
-            
             except Exception as e:
                 print('Error: ' + str(e))
                 
@@ -129,7 +120,7 @@ class Server:
     
     def addClientToChatRoom(self, client, roomName):
         chatRoom = self.chatRooms[roomName]
-        chatRoom.participants.append(client)
+        chatRoom.participants[client.address + str(client.port)] = client
     
 class Main:
     server = Server()

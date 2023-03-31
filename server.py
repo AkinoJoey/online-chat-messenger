@@ -31,11 +31,12 @@ class ChatRoom:
             message = "{}: {}".format(userNameOfData, data.decode("utf-8"))
 
             for member in self.participants.values():
-                if member == self.participants[address[0] + str(address[1])]:
-                    continue
+                # if member == self.participants[address[0] + str(address[1])]:
+                #     continue
                 self.sock.sendto(message.encode(),(member.address, member.port))
             
-            self.sock.sendto("test,".encode(),(address[0],address[1]))
+            # messageFromeServer = input("Server: ")
+            # self.sock.sendto(("Server: " + messageFromeServer).encode(),(address[0],address[1]))
 
 class Server:
     def __init__(self):

@@ -1,4 +1,5 @@
 import socket
+import asyncio
 
 class ChatClient:
     def __init__(self, username, address, port,status):
@@ -35,8 +36,9 @@ class ChatRoom:
                 #     continue
                 self.sock.sendto(message.encode(),(member.address, member.port))
             
-            # messageFromeServer = input("Server: ")
-            # self.sock.sendto(("Server: " + messageFromeServer).encode(),(address[0],address[1]))
+            messageFromeServer = input("Server: ")
+            self.sock.sendto(("Server: " + messageFromeServer).encode(),(address[0],address[1]))
+
 
 class Server:
     def __init__(self):

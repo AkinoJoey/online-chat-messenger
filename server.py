@@ -1,5 +1,6 @@
 import socket
 import asyncio
+import aioconsole
 
 class ChatClient:
     def __init__(self, username, address, port,status):
@@ -12,33 +13,60 @@ class ChatClient:
 class ChatRoom:
     def __init__(self,roomName, maxMember, client):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setblocking(0)
         self.address = '127.0.0.1'
         self.port = 9002
         self.roomName = roomName
         self.maxMember = maxMember
         self.participants = {(client.address) + str(client.port): client}
         self.hostMap = {(client.address) + str(client.port): client}
+
+    async def sendMessage(self):
+        while True:
+            message = await aioconsole.ainput()
+            loop = asyncio.get_event_loop()
+
+            for client in self.participants.values():
+                await loop.sock_sendto(self.sock, message.encode("utf-8"), (client.address, client.port))
+            
+            print ("\033[A                             \033[A")
+            print("\nServer: {}".format(message))
+            await asyncio.sleep(0.1)
+
+    async def receveMessage(self):
+        while True:
+            loop = asyncio.get_event_loop()
+            data, address = await loop.sock_recvfrom(self.sock, 4096)
+            userNameOfData = self.participants[address[0] + str(address[1])].username
+
+            if data:
+                print("\n{}: {}".format(userNameOfData, data.decode("utf-8")))     
+            await asyncio.sleep(0.1)
+
+    async def main(self):
+        try: 
+             async with asyncio.TaskGroup() as tg:
+                task1 = tg.create_task(self.receveMessage())
+                task2 = tg.create_task(self.sendMessage())
+    
+        except Exception as e:
+            print("Error: " + str(e))
+            self.sock.close()
         
     def startChat(self):
         print('\nStart the new chat room "{}"'.format(self.roomName))
         
         self.sock.bind((self.address, self.port))
+
+        try:
+            asyncio.run(self.main())
+            # asyncio.run(self.sendMessage())
+            # self.sock.settimeout(2)
         
-        while True:
-            data, address = self.sock.recvfrom(4096)
-            userNameOfData = self.participants[address[0] + str(address[1])].username
-
-            print("{}: {}".format(userNameOfData, data.decode("utf-8")))
-            message = "{}: {}".format(userNameOfData, data.decode("utf-8"))
-
-            for member in self.participants.values():
-                # if member == self.participants[address[0] + str(address[1])]:
-                #     continue
-                self.sock.sendto(message.encode(),(member.address, member.port))
-            
-            messageFromeServer = input("Server: ")
-            self.sock.sendto(("Server: " + messageFromeServer).encode(),(address[0],address[1]))
-
+        except TimeoutError as e:
+            print(e)
+            self.sock.close()
+        
 
 class Server:
     def __init__(self):

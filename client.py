@@ -4,7 +4,6 @@ import asyncio
 import aioconsole
 
 class Client:
-    
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sockForChat = None
@@ -23,7 +22,7 @@ class Client:
         while self.port == None:
                 self.port = int.from_bytes(self.sock.recv(2), "big")
 
-    async def sendMessage(self):
+    async def sendMessage(self,receveTask):
         while self.joinChatroom == True:
             message = await aioconsole.ainput()
             loop = asyncio.get_event_loop()
@@ -33,21 +32,22 @@ class Client:
             await asyncio.sleep(0.1)
 
             if message == "bye":
-                self.leaveChatroom()
+                await self.leaveChatroom(receveTask)
 
     async def receveMessage(self):
-        while self.joinChatroom == True:
+        while True:
             loop = asyncio.get_event_loop()
             data, address = await loop.sock_recvfrom(self.sockForChat, 4096)
             if data:
-                print("\nServer: {}".format(data.decode()))    
+                print("\nServerpy: {}".format(data.decode()))    
             await asyncio.sleep(0.1)
                 
-    def leaveChatroom(self):
+    async def leaveChatroom(self,receveTask):
         while True:
-            confirmMessage = input("--> Do you want to leave the chat room? Type in Yes or No: ")
+            confirmMessage = await aioconsole.ainput("--> Do you want to leave the chat room? Type in Yes or No: ")
             if confirmMessage == "Yes":
                 self.joinChatroom = False
+                receveTask.cancel()
                 break
             elif confirmMessage == "No":
                 break
@@ -57,10 +57,9 @@ class Client:
     async def main(self):
         try: 
             async with asyncio.TaskGroup() as tg:
-                task1 = tg.create_task(self.receveMessage())
-                task2 = tg.create_task(self.sendMessage())
+                receveTask = tg.create_task(self.receveMessage())
+                sendTask = tg.create_task(self.sendMessage(receveTask))
             
-            print("All task is done!")
         except Exception as e:
             print("Error: " + str(e))
             self.sockForChat.close()
@@ -78,21 +77,14 @@ class Client:
         self.sockForChat.bind((self.address, self.port))
         print('\nStart the new chat room "{}"'.format(chatRoom_name))
 
-        try:
-            asyncio.run(self.main())
-            # asyncio.run(self.sendMessage())
-            # self.sockForChat.settimeout(2)
-        
-        except TimeoutError as e:
-            print(e)
-            self.sockForChat.close()
+        asyncio.run(self.main())
             
     def connectServer(self):
         
         try:
             self.sock.settimeout(2)
             self.sock.connect((self.server_address,self.server_port))
-        except socket.error as e:
+        except OSError as e:
             print(e)
             sys.exit(1)
         
@@ -128,8 +120,6 @@ class Client:
 
             self.startChat(chatRoom_name)
             
-        except(TimeoutError):
-            print("Socket timeout.")
             
         except Exception as e:
             print(e)

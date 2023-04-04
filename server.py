@@ -29,7 +29,7 @@ class ChatRoom:
             for client in self.participants.values():
                 await loop.sock_sendto(self.sock, message.encode("utf-8"), (client.address, client.port))
             
-            print ("\033[A                             \033[A")
+            print ("\033[A          \033[A")
             print("\nServer: {}".format(message))
             await asyncio.sleep(0.1)
 
@@ -44,30 +44,15 @@ class ChatRoom:
             await asyncio.sleep(0.1)
 
     async def main(self):
-        try: 
-             async with asyncio.TaskGroup() as tg:
-                task1 = tg.create_task(self.receveMessage())
-                task2 = tg.create_task(self.sendMessage())
-    
-        except Exception as e:
-            print("Error: " + str(e))
-            self.sock.close()
+        async with asyncio.TaskGroup() as tg:
+            task1 = tg.create_task(self.receveMessage())
+            task2 = tg.create_task(self.sendMessage())
         
     def startChat(self):
         print('\nStart the new chat room "{}"'.format(self.roomName))
-        
         self.sock.bind((self.address, self.port))
-
-        try:
-            asyncio.run(self.main())
-            # asyncio.run(self.sendMessage())
-            # self.sock.settimeout(2)
+        asyncio.run(self.main())
         
-        except TimeoutError as e:
-            print(e)
-            self.sock.close()
-        
-
 class Server:
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

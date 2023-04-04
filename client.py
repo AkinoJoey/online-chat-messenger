@@ -27,7 +27,7 @@ class Client:
             message = await aioconsole.ainput()
             loop = asyncio.get_event_loop()
             await loop.sock_sendto(self.sockForChat, message.encode("utf-8"), (self.chatroom_address, self.chatroom_port))
-            print ("\033[A            \033[A")
+            print()
             print("\nYou: {}".format(message))
             await asyncio.sleep(0.1)
 
@@ -78,9 +78,24 @@ class Client:
         print('\nStart the new chat room "{}"'.format(chatRoom_name))
 
         asyncio.run(self.main())
-            
+
+    def promptServiceType(self):
+        while True:
+            service_type = input("--> Type in 1 if you want to make a new chat room. Type in 2 if you want to join in a chat room: ")
+            if service_type == "1" or service_type == "2":
+                return service_type
+            else:
+                print("Please type in 1 or 2")
+    
+    def promptMaxMember(self):
+        while True:
+            maxMember = input("--> Type in the maximum number of participants for your chat room: ")
+            if maxMember.isdigit() and maxMember != "0":
+                return maxMember
+            else:
+                print("Please type in a positive integer.")
+
     def connectServer(self):
-        
         try:
             self.sock.settimeout(2)
             self.sock.connect((self.server_address,self.server_port))
@@ -91,22 +106,20 @@ class Client:
         try:
             user_name = input("--> Type in your name: ")
             user_name_bytes = user_name.encode("utf-8")
-            
-            while True:
-                service_type = input("--> Type in 1 if you want to make a new chat room. Type in 2 if you want to join in a chat room: ")
-                if service_type == "1" or service_type == "2":
-                    break
-                else:
-                    "Please type in 1 or 2"
-            
+
+            service_type = self.promptServiceType()
             service_type_bytes = service_type.encode("utf-8")
             
             chatRoom_name = input("--> Type in the name of the chat room you want to make: ") if service_type == "1" else input("--> Type in the name of the chat room you want to join in: ")
             chatRoom_name_bytes = chatRoom_name.encode("utf-8")
             
-            # ユーザーが参加者のときは0に設定しておく
-            promptMaxMember = "0" if service_type == "2" else input("--> Type in the maximum number of participants for your chat room: ")
-            promptMaxMember_bytes = promptMaxMember.encode("utf-8")
+            # ユーザーが参加者のときはmaxMemberを0に設定しておく
+            if service_type == "2":
+                maxMember = "0"
+            else:
+                maxMember = self.promptMaxMember()
+            
+            promptMaxMember_bytes = maxMember.encode("utf-8")
             
             header = self.protocol_header(len(user_name_bytes), len(service_type_bytes),len(chatRoom_name_bytes),len(promptMaxMember_bytes))
             
@@ -119,7 +132,6 @@ class Client:
             self.setPortNumber()
 
             self.startChat(chatRoom_name)
-            
             
         except Exception as e:
             print(e)

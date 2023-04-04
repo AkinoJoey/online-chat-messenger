@@ -29,7 +29,7 @@ class ChatRoom:
             for client in self.participants.values():
                 await loop.sock_sendto(self.sock, message.encode("utf-8"), (client.address, client.port))
             
-            print ("\033[A          \033[A")
+            print ()
             print("\nServer: {}".format(message))
             await asyncio.sleep(0.1)
 
@@ -44,15 +44,26 @@ class ChatRoom:
             await asyncio.sleep(0.1)
 
     async def main(self):
-        async with asyncio.TaskGroup() as tg:
-            task1 = tg.create_task(self.receveMessage())
-            task2 = tg.create_task(self.sendMessage())
-        
+        try:
+            async with asyncio.TaskGroup() as tg:
+                task1 = tg.create_task(self.receveMessage())
+                task2 = tg.create_task(self.sendMessage())
+
+        except Exception as e:
+            print("Error: " + str(e))
+            self.sock.close()
+
     def startChat(self):
         print('\nStart the new chat room "{}"'.format(self.roomName))
         self.sock.bind((self.address, self.port))
-        asyncio.run(self.main())
-        
+
+        try:
+            asyncio.run(self.main())
+
+        except Exception as e:
+            print("Error: " + str(e))
+            self.sock.close()
+
 class Server:
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -67,7 +78,7 @@ class Server:
         # 切断した後すぐに再利用するためにオプションを設定
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((self.address, self.port))
-        self.sock.listen(1)
+        self.sock.listen(5)
         
         while True:
             connection, client_address = self.sock.accept()
@@ -115,7 +126,6 @@ class Server:
                     else:
                         self.addClientToChatRoom(chatClient, chat_roomName)
                         
-                    
             except Exception as e:
                 print('Error: ' + str(e))
                 

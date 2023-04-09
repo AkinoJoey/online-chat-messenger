@@ -13,20 +13,29 @@ class Client:
         self.server_port = 9005
         self.address = '127.0.0.1'
         self.port = None
+        self.status = None
         self.joinChatroom = False
         
-    def protocol_header(self, username_length, service_type_length, chatroom_name_length, maxMember_length):
-        return username_length.to_bytes(2, "big") + service_type_length.to_bytes(2, "big") + chatroom_name_length.to_bytes(2, "big") + maxMember_length.to_bytes(2, "big")
-    
-    def setPortNumber(self):
+    def setClientPortNumber(self):
         while self.port == None:
-                self.port = int.from_bytes(self.sock.recv(2), "big")
+            self.port = int.from_bytes(self.sock.recv(2), "big")     
+            print("my port is {}".format(self.port))
+    
+    def setChatroomPortNumber(self):
+        while self.chatRoom_port == None:
+            self.chatRoom_port = int.from_bytes(self.sock.recv(2), "big")
+            print("chat room port is {}".format(self.chatRoom_port))
+    
+    def sendUserData(self, userdata):
+        userdata_bytes = userdata.encode("utf-8")
+        self.sock.send(len(userdata_bytes).to_bytes(2, "big"))
+        self.sock.send(userdata_bytes)
 
     async def sendMessage(self,receveTask):
         while self.joinChatroom == True:
             message = await aioconsole.ainput()
-            loop = asyncio.get_event_loop()
-            await loop.sock_sendto(self.sockForChat, message.encode("utf-8"), (self.chatroom_address, self.chatroom_port))
+            loop = asyncio.get_running_loop()
+            await loop.sock_sendto(self.sockForChat, message.encode("utf-8"), (self.chatroom_address, self.chatRoom_port))
             print()
             print("\nYou: {}".format(message))
             await asyncio.sleep(0.1)
@@ -36,10 +45,10 @@ class Client:
 
     async def receveMessage(self):
         while True:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             data, address = await loop.sock_recvfrom(self.sockForChat, 4096)
             if data:
-                print("\nServerpy: {}".format(data.decode()))    
+                print(data.decode())    
             await asyncio.sleep(0.1)
                 
     async def leaveChatroom(self,receveTask):
@@ -69,15 +78,14 @@ class Client:
 
     def startChat(self,chatRoom_name):
         self.sockForChat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sockForChat.setblocking(0)
+        self.sockForChat.setblocking(False)
         self.chatroom_address = '127.0.0.1'
-        self.chatroom_port = 9002
         self.joinChatroom = True
         
         self.sockForChat.bind((self.address, self.port))
         print('\nStart the new chat room "{}"'.format(chatRoom_name))
 
-        asyncio.run(self.main())
+        asyncio.run(self.main(),debug=True)
 
     def promptServiceType(self):
         while True:
@@ -86,6 +94,30 @@ class Client:
                 return service_type
             else:
                 print("Please type in 1 or 2")
+                
+    def setStatus(self,service_type):
+        if service_type == "1":
+            self.status == "host"
+            
+        else:
+            self.status == "participant"
+            
+    def promptChatRoomName(self):
+        while True:
+            chatRoom_name = input("--> Type in the name of the chat room you want to make: ") if self.status == "host" else input("--> Type in the name of the chat room you want to join in: ")
+            self.sendUserData(chatRoom_name)
+            
+            findChatRoom = int.from_bytes(self.sock.recv(2), "big")
+            
+            print(findChatRoom)
+            
+            if findChatRoom == 0:
+                if self.status == "host":
+                    print("The chat room name is already in use.")
+                else:
+                    print("You cannot join the chat room. It does not exist or is already full.")
+            else:
+                return chatRoom_name
     
     def promptMaxMember(self):
         while True:
@@ -93,7 +125,7 @@ class Client:
             if maxMember.isdigit() and maxMember != "0":
                 return maxMember
             else:
-                print("Please type in a positive integer.")
+                print("Please type in a natural number.")
 
     def connectServer(self):
         try:
@@ -105,31 +137,20 @@ class Client:
         
         try:
             user_name = input("--> Type in your name: ")
-            user_name_bytes = user_name.encode("utf-8")
-
+            self.sendUserData(user_name)
+            
             service_type = self.promptServiceType()
-            service_type_bytes = service_type.encode("utf-8")
+            self.sendUserData(service_type)
+            self.setStatus(service_type)
             
-            chatRoom_name = input("--> Type in the name of the chat room you want to make: ") if service_type == "1" else input("--> Type in the name of the chat room you want to join in: ")
-            chatRoom_name_bytes = chatRoom_name.encode("utf-8")
-            
+            chatRoom_name = self.promptChatRoomName()
+                
             # ユーザーが参加者のときはmaxMemberを0に設定しておく
-            if service_type == "2":
-                maxMember = "0"
-            else:
-                maxMember = self.promptMaxMember()
+            maxMember = "0" if service_type == "2" else self.promptMaxMember()
+            self.sendUserData(maxMember)
             
-            promptMaxMember_bytes = maxMember.encode("utf-8")
-            
-            header = self.protocol_header(len(user_name_bytes), len(service_type_bytes),len(chatRoom_name_bytes),len(promptMaxMember_bytes))
-            
-            self.sock.send(header)
-            self.sock.send(user_name_bytes)
-            self.sock.send(service_type_bytes)
-            self.sock.send(chatRoom_name_bytes)
-            self.sock.send(promptMaxMember_bytes)
-            
-            self.setPortNumber()
+            self.setClientPortNumber()
+            self.setChatroomPortNumber()
 
             self.startChat(chatRoom_name)
             
@@ -140,7 +161,6 @@ class Client:
             print('closing chat service')
             self.sock.close()
                     
-    
             
 class Main:
     client = Client()

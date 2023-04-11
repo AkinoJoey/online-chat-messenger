@@ -2,11 +2,13 @@ import socket
 import sys
 import asyncio
 import aioconsole
+import logging
 
 class Client:
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sockForChat = None
+        self.chatRoom_name = None
         self.chatRoom_address = None
         self.chatRoom_port = None
         self.server_address = '127.0.0.1'
@@ -32,34 +34,51 @@ class Client:
         self.sock.send(userdata_bytes)
 
     async def sendMessage(self,receveTask):
-        while self.joinChatroom == True:
+        while True:
             message = await aioconsole.ainput()
-            loop = asyncio.get_running_loop()
-            await loop.sock_sendto(self.sockForChat, message.encode("utf-8"), (self.chatroom_address, self.chatRoom_port))
-            print()
-            print("\nYou: {}".format(message))
-            await asyncio.sleep(0.1)
+            leave = False
 
             if message == "bye":
-                await self.leaveChatroom(receveTask)
+                leave = await self.confirmLeaveChatroom()
 
+            if leave == True:
+                await self.leaveChatroom(receveTask)
+                break
+            else:
+                messageSize = len(message)
+                prefix = "{}:{}:{}".format(self.chatRoom_name, messageSize, message)
+                loop = asyncio.get_running_loop()
+                await loop.sock_sendto(self.sockForChat, prefix.encode("utf-8"), (self.chatRoom_address, self.chatRoom_port))
+                print()
+                print("\nYou: {}".format(message))
+            
+            await asyncio.sleep(0.1)
+    
+    async def leaveChatroom(self,receveTask):
+        receveTask.cancel()
+        stringtoLeave = "real-Bye-Bye"
+        messageSize = len(stringtoLeave)
+        prefix = "{}:{}:{}".format(self.chatRoom_name, messageSize, stringtoLeave)
+        loop = asyncio.get_running_loop()
+        await loop.sock_sendto(self.sockForChat, prefix.encode("utf-8"), (self.chatRoom_address, self.chatRoom_port))
+        
     async def receveMessage(self):
         while True:
             loop = asyncio.get_running_loop()
             data, address = await loop.sock_recvfrom(self.sockForChat, 4096)
+            
             if data:
                 print(data.decode())    
+
             await asyncio.sleep(0.1)
                 
-    async def leaveChatroom(self,receveTask):
+    async def confirmLeaveChatroom(self):
         while True:
             confirmMessage = await aioconsole.ainput("--> Do you want to leave the chat room? Type in Yes or No: ")
             if confirmMessage == "Yes":
-                self.joinChatroom = False
-                receveTask.cancel()
-                break
+                return True
             elif confirmMessage == "No":
-                break
+                return False
             else:
                 confirmMessage = print("Please tyep in Yes or No")
 
@@ -79,12 +98,17 @@ class Client:
     def startChat(self,chatRoom_name):
         self.sockForChat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sockForChat.setblocking(False)
-        self.chatroom_address = '127.0.0.1'
+        self.chatRoom_address = '127.0.0.1'
+        self.chatRoom_name = chatRoom_name
         self.joinChatroom = True
         
         self.sockForChat.bind((self.address, self.port))
-        print('\nStart the new chat room "{}"'.format(chatRoom_name))
-
+        print('\nStart the new chat room "{}"'.format(self.chatRoom_name)) if self.status == "host" else print("Join in {}".format(self.chatRoom_name))
+        
+        if self.status == "participant":
+            joinMessage = "{}:join".format(self.chatRoom_name)
+            self.sockForChat.sendto(joinMessage.encode("utf-8"),(self.chatRoom_address, self.chatRoom_port))
+        
         asyncio.run(self.main(),debug=True)
 
     def promptServiceType(self):
@@ -97,13 +121,14 @@ class Client:
                 
     def setStatus(self,service_type):
         if service_type == "1":
-            self.status == "host"
+            self.status = "host"
             
         else:
-            self.status == "participant"
+            self.status = "participant"
             
     def promptChatRoomName(self):
         while True:
+            print(self.status)
             chatRoom_name = input("--> Type in the name of the chat room you want to make: ") if self.status == "host" else input("--> Type in the name of the chat room you want to join in: ")
             self.sendUserData(chatRoom_name)
             
@@ -168,5 +193,6 @@ class Main:
     
     
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     Main()
 

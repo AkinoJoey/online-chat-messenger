@@ -2,6 +2,7 @@ import socket
 import asyncio
 import _thread
 import random
+import re
 
 class ChatClient:
     def __init__(self, username, address, port,status):
@@ -9,7 +10,6 @@ class ChatClient:
         self.address = address
         self.port = port
         self.status = status
-        self.chatRoomJoining = True
         
 class ChatRoom:
     def __init__(self,port, roomName, maxMember, client):
@@ -22,6 +22,38 @@ class ChatRoom:
         self.participants = {(client.address) + str(client.port): client}
         self.hostMap = {(client.address) + str(client.port): client}
 
+    def existParticipants(self):
+        return len(self.participants) >= 1
+
+    async def announceFromServer(self, message):
+        loop = asyncio.get_event_loop()
+
+        for client in self.participants.values():
+            await loop.sock_sendto(self.sock, message.encode("utf-8"), (client.address, client.port))
+        
+        await asyncio.sleep(0.1)
+    
+    async def deleteParticipant(self, address):
+        key = address[0] + str(address[1])
+        target = self.participants[key]
+        del self.participants[key]
+        
+        if self.existParticipants() == True:
+            announce = "Server: {} left the room.".format(target.username)
+            await self.announceFromServer(announce)
+        else:
+            print("{} has been closed.".format(self.roomName))
+            self.sock.close()
+
+    def extractMessage(self, data):
+        data = data.decode("utf-8")
+
+        if data == "{}:join".format(self.roomName):
+            return "join"
+        else:
+            extractMessagePattern = self.roomName + ":" + r'[0-9]*' + ":"
+            return re.split(extractMessagePattern, data)[1]
+
     async def sendMessage(self,message,sender):
         loop = asyncio.get_event_loop()
         
@@ -31,18 +63,23 @@ class ChatRoom:
         
         await asyncio.sleep(0.1)
 
-    async def receveMessage(self):
-        while True:
+    async def receveData(self):
+        while self.existParticipants():
             loop = asyncio.get_event_loop()
             data, address = await loop.sock_recvfrom(self.sock, 4096)
             sender = self.participants[address[0] + str(address[1])]
 
             if data:
-                message = "{}: {}".format(sender.username, data.decode("utf-8"))
-                print(message)   
-                await self.sendMessage(message,sender)  
-                
+                message = self.extractMessage(data)
+                if message == "real-Bye-Bye":
+                    await self.deleteParticipant(address)
+                else:    
+                    messageToSend = "{}: {}".format(sender.username, message)
+                    print(messageToSend)   
+                    await self.sendMessage(messageToSend,sender)  
+          
             await asyncio.sleep(0.1)
+
 
     def startChat(self):
         print('\nStart the new chat room "{}"'.format(self.roomName))
@@ -50,10 +87,13 @@ class ChatRoom:
         self.sock.bind((self.address, self.port))
 
         try:
-            asyncio.run(self.receveMessage())
+            asyncio.run(self.receveData())
 
         except Exception as e:
             print("Error: " + str(e))
+            self.sock.close()
+        
+        finally:
             self.sock.close()
 
 class Server:
@@ -67,10 +107,9 @@ class Server:
     def accept(self):
         print("Starting up on {} port {}".format(self.address,self.port))
 
-        # 切断した後すぐに再利用するためにオプションを設定
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((self.address, self.port))
-        self.sock.listen(5)
+        self.sock.listen(128)
         
         while True:
             connection, client_address = self.sock.accept()

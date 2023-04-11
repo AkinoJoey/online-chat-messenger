@@ -7,16 +7,11 @@ import logging
 class Client:
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sockForChat = None
-        self.chatRoom_name = None
-        self.chatRoom_address = None
-        self.chatRoom_port = None
-        self.server_address = '127.0.0.1'
-        self.server_port = 9005
         self.address = '127.0.0.1'
         self.port = None
         self.status = None
-        self.joinChatroom = False
+        self.server_address = '127.0.0.1'
+        self.server_port = 9005
     
     def connectServer(self):
         try:
@@ -41,9 +36,9 @@ class Client:
             self.sendUserData(maxMember)
             
             self.setClientPortNumber()
-            self.setChatroomPortNumber()
 
-            self.startChat(chatRoom_name)
+            chatRoom_port =  self.getChatroomPort()
+            self.makeChatClient(chatRoom_name, chatRoom_port)
             
         except Exception as e:
             print(e)
@@ -103,26 +98,60 @@ class Client:
             self.port = int.from_bytes(self.sock.recv(2), "big")     
             print("my port is {}".format(self.port))
     
-    def setChatroomPortNumber(self):
-        while self.chatRoom_port == None:
-            self.chatRoom_port = int.from_bytes(self.sock.recv(2), "big")
-            print("chat room port is {}".format(self.chatRoom_port))
+    def getChatroomPort(self):
+        chatRoom_port = None
+        while True:
+            chatRoom_port = int.from_bytes(self.sock.recv(2), "big")
+            print("chat room port is {}".format(chatRoom_port))
+
+            if chatRoom_port != None:
+                return chatRoom_port
     
-    def startChat(self,chatRoom_name):
+    def makeChatClient(self,chatRoom_name, chatRoom_port):
+        chatClient = ChatClient(self.port,self.status,chatRoom_name,chatRoom_port)
+
+class ChatClient:
+    def __init__(self,port,status,chatRoom_name,chatRoom_port):
         self.sockForChat = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sockForChat.setblocking(False)
+        self.address = '127.0.0.1'
+        self.port = port
+        self.status = status
         self.chatRoom_address = '127.0.0.1'
+        self.chatRoom_port = chatRoom_port
         self.chatRoom_name = chatRoom_name
-        self.joinChatroom = True
-        
         self.sockForChat.bind((self.address, self.port))
+
         print('\nStart the new chat room "{}"'.format(self.chatRoom_name)) if self.status == "host" else print("Join in {}".format(self.chatRoom_name))
         
         if self.status == "participant":
             joinMessage = "{}:join".format(self.chatRoom_name)
             self.sockForChat.sendto(joinMessage.encode("utf-8"),(self.chatRoom_address, self.chatRoom_port))
         
-        asyncio.run(self.main(),debug=True)
+        asyncio.run(self.startChat(),debug=True)
+
+    async def startChat(self):
+        try: 
+            async with asyncio.TaskGroup() as tg:
+                receveTask = tg.create_task(self.receveMessage())
+                sendTask = tg.create_task(self.sendMessage(receveTask))
+            
+        except Exception as e:
+            print("Error: " + str(e))
+            self.sockForChat.close()
+            
+        finally:
+            self.sockForChat.close()
+
+    async def receveMessage(self):
+        while True:
+            loop = asyncio.get_running_loop()
+            data, address = await loop.sock_recvfrom(self.sockForChat, 4096)
+            
+            if data:
+                print(data.decode())    
+
+            await asyncio.sleep(0.1)
     
 
     async def sendMessage(self,receveTask):
@@ -146,24 +175,6 @@ class Client:
             
             await asyncio.sleep(0.1)
     
-    async def leaveChatroom(self,receveTask):
-        receveTask.cancel()
-        stringtoLeave = "real-Bye-Bye"
-        messageSize = len(stringtoLeave)
-        prefix = "{}:{}:{}".format(self.chatRoom_name, messageSize, stringtoLeave)
-        loop = asyncio.get_running_loop()
-        await loop.sock_sendto(self.sockForChat, prefix.encode("utf-8"), (self.chatRoom_address, self.chatRoom_port))
-        
-    async def receveMessage(self):
-        while True:
-            loop = asyncio.get_running_loop()
-            data, address = await loop.sock_recvfrom(self.sockForChat, 4096)
-            
-            if data:
-                print(data.decode())    
-
-            await asyncio.sleep(0.1)
-                
     async def confirmLeaveChatroom(self):
         while True:
             confirmMessage = await aioconsole.ainput("--> Do you want to leave the chat room? Type in Yes or No: ")
@@ -173,24 +184,18 @@ class Client:
                 return False
             else:
                 confirmMessage = print("Please tyep in Yes or No")
-
-    async def main(self):
-        try: 
-            async with asyncio.TaskGroup() as tg:
-                receveTask = tg.create_task(self.receveMessage())
-                sendTask = tg.create_task(self.sendMessage(receveTask))
-            
-        except Exception as e:
-            print("Error: " + str(e))
-            self.sockForChat.close()
-            
-        finally:
-            self.sockForChat.close()
-            
+    
+    async def leaveChatroom(self,receveTask):
+        receveTask.cancel()
+        stringtoLeave = "real-Bye-Bye"
+        messageSize = len(stringtoLeave)
+        prefix = "{}:{}:{}".format(self.chatRoom_name, messageSize, stringtoLeave)
+        loop = asyncio.get_running_loop()
+        await loop.sock_sendto(self.sockForChat, prefix.encode("utf-8"), (self.chatRoom_address, self.chatRoom_port))
+        
 class Main:
     client = Client()
     client.connectServer()
-    
     
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

@@ -1,4 +1,6 @@
 @startuml all
+Server --o ChatRoom
+ChatRoom -o ChatClient
 
 ' サーバー側のコード。クライアントのリクエストを受けて、チャットルームを作成したり、チャットルームにジョインさせたりする
 class Server{
@@ -8,48 +10,42 @@ class Server{
     chatrooms: HashMap<String chatroomName, Chatroom chatroom>
     constructor()
     accept(): void
-    makeChatClient(name, address, port): ChatClient
-    makeChatRoom(roomName, maxMember, client): ChatRoom   
-    findChatRoom(): boolean
-    checkChatRoomCapacity(): boolean
-    addClientToChatRoom(): void
+    get_user_data(connection, client_address): void
+    convert_user_data_to_string(connection,SIZE_OF_DATA_SEND_AND_RECEIVE_PER_ONCE): string
+    prompt_chatroom_name(self,connection, SIZE_OF_DATA_SEND_AND_RECEIVE_PER_ONCE, service_type): string
+    make_chat_client(user_name, address, port, service_type): ChatClient
+    send_port_number(connection,port,SIZE_OF_DATA_SEND_AND_RECEIVE_PER_ONCE): void
+    make_chatroom(chatroom_port,room_name, max_member, client): ChatRoom
+    add_client_to_chatroom(client, room_name): void
+    delete_empty_chatroom():
+    check_chat_room_capacity(room_name): boolean
+}
+
+class ChatClient{
+    user_name: String
+    address: String
+    port: int
+    status: String 
+    constructor(user_name, adress, port,status)
 }
 
 class ChatRoom{
     sock: socket
     address: String
     port: int
-    roomName: String
-    maxMember: int
-    participants: ArrayList<ChatClient client>
+    room_name: String
+    max_member: int
+    participants: HashMap<String address + port: ChatClient clienct>
     hostMap: HashMap<String address + port, ChatClient client>
     constructor(roomName, maxMember, client)
-    startChat():void
-    
+    start_chat(): void
+    receve_data(): void
+    exist_participants(): boolean
+    extract_message(data): string
+    delete_participant(address): void
+    send_message(message, sender): void
+    announce_from_server(message): void
 }
-
-class ChatClient{
-    username: String
-    address: String
-    port: int
-    status: String 
-    chatRoomJoining: String
-    constructor(username, adress, port,status)
-}
-
-class Client{
-    sock: Socket
-    server_address: String
-    server_port: int
-    address: String
-    port: int
-    constructor()
-    protocol_header(username_length, service_type_length, chatroom_name_length, maxMember_length): bytes
-    startChat(chatRoom_name): void
-    connecServer():void
-    joinChat():void
-}
-
 
 @enduml
 

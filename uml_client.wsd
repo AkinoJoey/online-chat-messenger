@@ -1,0 +1,39 @@
+@startuml all
+Client -- ChatClient
+
+class Client{
+    sock: socket
+    address: string
+    port: int
+    status: string
+    server_address: string
+    server_port: int
+    constracter():
+    connect_server(): void
+    send_user_data(userdata, SIZE_OF_DATA_SEND_AND_RECEIVE_PER_ONCE): void
+    prompt_service_type(): string
+    set_status(ervice_type): string
+    prompt_chat_room_name(SIZE_OF_DATA_SEND_AND_RECEIVE_PER_ONCE): string
+    prompt_max_member(): string
+    set_client_port_number(SIZE_OF_DATA_SEND_AND_RECEIVE_PER_ONCE): void
+    get_chatroom_port(SIZE_OF_DATA_SEND_AND_RECEIVE_PER_ONCE): int
+    make_chat_client(chatroom_name, chatroom_port): void
+}
+
+class ChatClient{
+    sock: socket
+    address: string
+    port: int
+    status: string
+    chatroom_address: string
+    chatroom_port: int
+    chatroom_name: string
+    constracter(port, status, chatroom_name, chatroom_port):
+    start_chat(): void
+    receve_message(): void
+    send_message(receve_task): void
+    confirm_leave_chatroom(): boolean
+    leave_chatroom(receve_task): void
+}
+
+@enduml
